@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proyecto 23 — Control de Entregas No Completadas</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #1a1d23; --muted: #6b7280;
+    --border: #e5e7eb; --accent: #d97706; --accent-dark: #b45309;
+    --danger: #dc2626; --success: #16a34a;
+  }
+  [data-theme="dark"] {
+    --bg: #14161a; --card: #1f2229; --text: #e8e9ec; --muted: #9aa0aa;
+    --border: #2e3238; --accent: #f59e0b; --accent-dark: #d97706;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:var(--text); transition: background .2s, color .2s; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; background:var(--card); border-bottom:1px solid var(--border); flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  header h1 span { color:var(--accent); }
+  .hdr-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  button { cursor:pointer; border:none; border-radius:8px; padding:9px 14px; font-size:14px; font-weight:600; background:var(--accent); color:#fff; }
+  button:hover { background:var(--accent-dark); }
+  button.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+  button.secondary:hover { background:var(--border); }
+  main { max-width:1100px; margin:0 auto; padding:24px; display:none; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+  .card h2 { margin-top:0; font-size:15px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  input, select { width:100%; padding:9px 10px; border-radius:7px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:14px; }
+  .form-actions { margin-top:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; position:sticky; top:0; background:var(--card); }
+  .table-wrap { overflow-x:auto; max-height:420px; overflow-y:auto; }
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; }
+  .stat-box { background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:12px; }
+  .stat-box .n { font-size:22px; font-weight:700; }
+  .stat-box .l { font-size:12px; color:var(--muted); }
+  .bar-row { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:13px; }
+  .bar-label { width:190px; flex-shrink:0; color:var(--muted); }
+  .bar-track { flex:1; background:var(--border); border-radius:5px; height:14px; overflow:hidden; }
+  .bar-fill { height:100%; background:var(--accent); }
+  .bar-count { width:28px; text-align:right; font-weight:600; }
+  #login-screen { min-height:80vh; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; text-align:center; padding:20px; }
+  #login-screen h1 { font-size:24px; }
+  #sync-dot { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; margin-right:6px; }
+  .del-btn { background:transparent; color:var(--danger); border:none; font-weight:700; padding:2px 8px; }
+  .del-btn:hover { background:var(--danger); color:#fff; border-radius:5px; }
+  .user-chip { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .user-chip img { width:24px; height:24px; border-radius:50%; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>🚚 Proyecto 23</h1>
+  <p style="color:var(--muted); max-width:360px;">Control de Entregas No Completadas — CEDIS Kassel Home &amp; Living</p>
+  <button id="google-signin-btn">Iniciar sesión con Google</button>
+  <p id="login-error" style="color:#dc2626; font-size:13px;"></p>
+</div>
+
+<header id="app-header" style="display:none;">
+  <h1>📦 Proyecto 23 <span>| Entregas No Completadas</span></h1>
+  <div class="hdr-actions">
+    <span id="sync-status" style="font-size:12px; color:var(--muted);"><span id="sync-dot"></span>En vivo</span>
+    <span class="user-chip"><img id="user-photo" src="" alt=""><span id="user-name"></span></span>
+    <button class="secondary" id="export-csv-btn">Exportar CSV</button>
+    <button class="secondary" id="theme-toggle-btn">🌙</button>
+    <button class="secondary" id="signout-btn">Salir</button>
+  </div>
+</header>
+
+<main id="app-main">
+
+  <div class="card">
+    <h2>Nueva ODE no entregada</h2>
+    <form id="ode-form">
+      <div class="grid">
+        <div><label>Folio ODE</label><input type="text" id="f-folio" required></div>
+        <div><label>Monto ODE ($)</label><input type="number" step="0.01" id="f-monto" required></div>
+        <div><label>Vendedor</label><input type="text" id="f-vendedor" required></div>
+        <div><label>Tienda</label><input type="text" id="f-tienda" required></div>
+        <div><label>Operador de camión</label><input type="text" id="f-operador" required></div>
+        <div>
+          <label>Tipo de almacén</label>
+          <select id="f-almacen" required>
+            <option value="">Selecciona...</option>
+            <option>CEDIS</option>
+            <option>Tienda</option>
+            <option>Proveedor externo</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label>Motivo de no entrega</label>
+          <select id="f-motivo" required>
+            <option value="">Selecciona...</option>
+            <option>Dañado</option>
+            <option>Cliente no disponible</option>
+            <option>Sin mercancía</option>
+            <option>Pedido mal levantado</option>
+            <option>Error de Torre de Control y Logística</option>
+            <option>Reprogramado a tiempo</option>
+            <option>Surtido erróneo</option>
+            <option>Programación incorrecta</option>
+            <option>Diferencia de tonos</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions"><button type="submit">Agregar registro</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Estadísticas</h2>
+    <div class="stat-grid" id="stat-summary"></div>
+    <div style="margin-top:16px;">
+      <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">Distribución por motivo</div>
+      <div id="motivo-bars"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Registros (<span id="record-count">0</span>)</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Fecha</th><th>Folio</th><th>Monto</th><th>Vendedor</th><th>Tienda</th>
+          <th>Operador</th><th>Almacén</th><th>Motivo</th><th>Capturado por</th><th></th>
+        </tr></thead>
+        <tbody id="records-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script>
+// ---- Configuración Firebase ----
+const firebaseConfig = {
+  apiKey: "AIzaSyBFCPblWQgVacDSIl-y_8oG1J7lShJhx2E",
+  authDomain: "proyecto23-b599a.firebaseapp.com",
+  projectId: "proyecto23-b599a",
+  storageBucket: "proyecto23-b599a.firebasestorage.app",
+  messagingSenderId: "533304899268",
+  appId: "1:533304899268:web:8017138c0eb28f8f2d3b91"
+};
+
+// Para restringir el acceso a un dominio de correo específico más adelante,
+// pon aquí el dominio (ej. "kasselhome.com") y descomenta el bloque de abajo en handleUser().
+const ALLOWED_DOMAIN = null;
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const provider = new firebase.auth.GoogleAuthProvider();
+
+const MOTIVOS = ["Dañado","Cliente no disponible","Sin mercancía","Pedido mal levantado",
+  "Error de Torre de Control y Logística","Reprogramado a tiempo","Surtido erróneo",
+  "Programación incorrecta","Diferencia de tonos"];
+
+let currentUser = null;
+let records = [];
+
+// ---- Auth ----
+document.getElementById('google-signin-btn').onclick = () => {
+  document.getElementById('login-error').textContent = "";
+  auth.signInWithPopup(provider).catch(err => {
+    document.getElementById('login-error').textContent = "No se pudo iniciar sesión: " + err.message;
+  });
+};
+document.getElementById('signout-btn').onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // if (ALLOWED_DOMAIN && !user.email.endsWith("@" + ALLOWED_DOMAIN)) {
+    //   document.getElementById('login-error').textContent = "Usa tu correo de la empresa.";
+    //   auth.signOut();
+    //   return;
+    // }
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-header').style.display = 'flex';
+    document.getElementById('app-main').style.display = 'block';
+    document.getElementById('user-name').textContent = user.displayName;
+    document.getElementById('user-photo').src = user.photoURL || '';
+    listenToRecords();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-header').style.display = 'none';
+    document.getElementById('app-main').style.display = 'none';
+  }
+});
+
+// ---- Firestore: crear / escuchar / borrar ----
+document.getElementById('ode-form').onsubmit = (e) => {
+  e.preventDefault();
+  db.collection('registros').add({
+    folio: document.getElementById('f-folio').value.trim(),
+    monto: parseFloat(document.getElementById('f-monto').value) || 0,
+    vendedor: document.getElementById('f-vendedor').value.trim(),
+    tienda: document.getElementById('f-tienda').value.trim(),
+    operador: document.getElementById('f-operador').value.trim(),
+    almacen: document.getElementById('f-almacen').value,
+    motivo: document.getElementById('f-motivo').value,
+    capturadoPor: currentUser.displayName,
+    capturadoEmail: currentUser.email,
+    fecha: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => e.target.reset());
+};
+
+function listenToRecords() {
+  db.collection('registros').orderBy('fecha', 'desc').onSnapshot(snap => {
+    records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderRecords();
+    renderStats();
+  }, err => {
+    document.getElementById('sync-status').textContent = "⚠ error de sincronización";
+  });
+}
+
+function deleteRecord(id) {
+  if (confirm("¿Borrar este registro?")) db.collection('registros').doc(id).delete();
+}
+
+// ---- Render tabla ----
+function renderRecords() {
+  const tbody = document.getElementById('records-body');
+  document.getElementById('record-count').textContent = records.length;
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td>${r.fecha ? r.fecha.toDate().toLocaleDateString('es-MX') : '—'}</td>
+      <td>${escapeHtml(r.folio)}</td>
+      <td>$${(r.monto||0).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+      <td>${escapeHtml(r.vendedor)}</td>
+      <td>${escapeHtml(r.tienda)}</td>
+      <td>${escapeHtml(r.operador)}</td>
+      <td>${escapeHtml(r.almacen)}</td>
+      <td>${escapeHtml(r.motivo)}</td>
+      <td>${escapeHtml(r.capturadoPor||'')}</td>
+      <td><button class="del-btn" onclick="deleteRecord('${r.id}')">✕</button></td>
+    </tr>`).join('');
+}
+
+// ---- Render estadísticas ----
+function renderStats() {
+  const total = records.length;
+  const montoTotal = records.reduce((s,r)=>s+(r.monto||0),0);
+  const tiendas = new Set(records.map(r=>r.tienda)).size;
+
+  document.getElementById('stat-summary').innerHTML = `
+    <div class="stat-box"><div class="n">${total}</div><div class="l">No entregadas</div></div>
+    <div class="stat-box"><div class="n">$${montoTotal.toLocaleString('es-MX',{maximumFractionDigits:0})}</div><div class="l">Monto acumulado</div></div>
+    <div class="stat-box"><div class="n">${tiendas}</div><div class="l">Tiendas involucradas</div></div>
+  `;
+
+  const counts = {};
+  MOTIVOS.forEach(m => counts[m] = 0);
+  records.forEach(r => { if (counts[r.motivo] !== undefined) counts[r.motivo]++; });
+  const max = Math.max(1, ...Object.values(counts));
+  document.getElementById('motivo-bars').innerHTML = MOTIVOS.map(m => `
+    <div class="bar-row">
+      <div class="bar-label">${m}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(counts[m]/max*100)}%"></div></div>
+      <div class="bar-count">${counts[m]}</div>
+    </div>`).join('');
+}
+
+function escapeHtml(s) {
+  return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---- CSV export ----
+document.getElementById('export-csv-btn').onclick = () => {
+  const header = ['Fecha','Folio','Monto','Vendedor','Tienda','Operador','Almacen','Motivo','CapturadoPor'];
+  const rows = records.map(r => [
+    r.fecha ? r.fecha.toDate().toLocaleDateString('es-MX') : '',
+    r.folio, r.monto, r.vendedor, r.tienda, r.operador, r.almacen, r.motivo, r.capturadoPor||''
+  ]);
+  const csv = [header, ...rows].map(row => row.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(["\uFEFF"+csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `proyecto23_entregas_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+};
+
+// ---- Dark mode ----
+const themeBtn = document.getElementById('theme-toggle-btn');
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('p23-theme', t);
+}
+applyTheme(localStorage.getItem('p23-theme') || 'light');
+themeBtn.onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+</script>
+</body>
+</html>
