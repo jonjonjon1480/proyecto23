@@ -109,6 +109,7 @@
     <h2>Nueva ODE no entregada</h2>
     <form id="ode-form">
       <div class="grid">
+        <div><label>Fecha del ejercicio</label><input type="date" id="f-fecha-evento" required></div>
         <div><label>Folio ODE</label><input type="text" id="f-folio" required></div>
         <div><label>Monto ODE ($)</label><input type="number" step="0.01" id="f-monto" required></div>
         <div><label>Vendedor</label><input type="text" id="f-vendedor" required></div>
@@ -288,6 +289,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('app-main').style.display = 'block';
     document.getElementById('user-name').textContent = user.displayName;
     document.getElementById('user-photo').src = user.photoURL || '';
+    document.getElementById('f-fecha-evento').value = new Date().toISOString().slice(0,10);
     listenToRecords();
   } else {
     currentUser = null;
@@ -308,6 +310,7 @@ document.getElementById('ode-form').onsubmit = (e) => {
   const motivo = document.getElementById('f-motivo').value;
   const motivoDetalle = motivo === 'Otro' ? document.getElementById('f-motivo-otro').value.trim() : '';
   db.collection('registros').add({
+    fechaEvento: document.getElementById('f-fecha-evento').value,
     folio: document.getElementById('f-folio').value.trim(),
     monto: parseFloat(document.getElementById('f-monto').value) || 0,
     vendedor: document.getElementById('f-vendedor').value.trim(),
@@ -319,11 +322,15 @@ document.getElementById('ode-form').onsubmit = (e) => {
     capturadoPor: currentUser.displayName,
     capturadoEmail: currentUser.email,
     fecha: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => { e.target.reset(); document.getElementById('f-motivo-otro-wrap').style.display = 'none'; });
+  }).then(() => {
+    e.target.reset();
+    document.getElementById('f-motivo-otro-wrap').style.display = 'none';
+    document.getElementById('f-fecha-evento').value = new Date().toISOString().slice(0,10);
+  });
 };
 
 function listenToRecords() {
-  db.collection('registros').orderBy('fecha', 'desc').onSnapshot(snap => {
+  db.collection('registros').orderBy('fechaEvento', 'desc').onSnapshot(snap => {
     records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderRecords();
     applyStatFilter();
@@ -353,7 +360,7 @@ function renderRecords() {
   document.getElementById('record-count').textContent = filtered.length;
   tbody.innerHTML = filtered.map(r => `
     <tr>
-      <td>${r.fecha ? r.fecha.toDate().toLocaleDateString('es-MX') : '—'}</td>
+      <td>${r.fechaEvento || '—'}</td>
       <td>${escapeHtml(r.folio)}</td>
       <td>$${(r.monto||0).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
       <td>${escapeHtml(r.vendedor)}</td>
@@ -370,13 +377,10 @@ function renderRecords() {
 function getRecordsInRange(startStr, endStr, source) {
   const src = source || records;
   if (!startStr && !endStr) return src;
-  const start = startStr ? new Date(startStr + 'T00:00:00') : null;
-  const end = endStr ? new Date(endStr + 'T23:59:59') : null;
   return src.filter(r => {
-    if (!r.fecha) return false;
-    const d = r.fecha.toDate();
-    if (start && d < start) return false;
-    if (end && d > end) return false;
+    if (!r.fechaEvento) return false;
+    if (startStr && r.fechaEvento < startStr) return false;
+    if (endStr && r.fechaEvento > endStr) return false;
     return true;
   });
 }
@@ -442,7 +446,7 @@ function escapeHtml(s) {
 document.getElementById('export-csv-btn').onclick = () => {
   const header = ['Fecha','Folio','Monto','Vendedor','Tienda','Operador','Almacen','Motivo','Detalle','CapturadoPor'];
   const rows = records.map(r => [
-    r.fecha ? r.fecha.toDate().toLocaleDateString('es-MX') : '',
+    r.fechaEvento || '',
     r.folio, r.monto, r.vendedor, r.tienda, r.operador, r.almacen, r.motivo, r.motivoDetalle||'', r.capturadoPor||''
   ]);
   const csv = [header, ...rows].map(row => row.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
