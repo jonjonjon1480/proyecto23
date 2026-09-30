@@ -51,6 +51,8 @@
   #sync-dot { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; margin-right:6px; }
   .del-btn { background:transparent; color:var(--danger); border:none; font-weight:700; padding:2px 8px; }
   .del-btn:hover { background:var(--danger); color:#fff; border-radius:5px; }
+  .edit-btn { color:var(--accent); }
+  .edit-btn:hover { background:var(--accent); color:#fff; }
   .user-chip { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:6px; }
   .user-chip img { width:24px; height:24px; border-radius:50%; }
   .date-filter { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
@@ -231,6 +233,55 @@
   </div>
 </div>
 
+<!-- Modal: Editar registro -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <button class="modal-close no-print" onclick="closeModal('edit-modal')">✕</button>
+    <h2 style="margin-top:0;">Editar registro</h2>
+    <form id="edit-form">
+      <input type="hidden" id="e-id">
+      <div class="grid">
+        <div><label>Fecha del ejercicio</label><input type="date" id="e-fecha-evento" required></div>
+        <div><label>Folio ODE</label><input type="text" id="e-folio" required></div>
+        <div><label>Monto ODE ($)</label><input type="number" step="0.01" id="e-monto" required></div>
+        <div><label>Vendedor</label><input type="text" id="e-vendedor" required></div>
+        <div><label>Tienda</label><input type="text" id="e-tienda" required></div>
+        <div><label>Operador de camión</label><input type="text" id="e-operador" required></div>
+        <div>
+          <label>Tipo de almacén</label>
+          <select id="e-almacen" required>
+            <option value="">Selecciona...</option>
+            <option>Almacén A</option>
+            <option>Almacén Q</option>
+            <option>Almacén K</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label>Motivo de no entrega</label>
+          <select id="e-motivo" required>
+            <option value="">Selecciona...</option>
+            <option>Dañado</option>
+            <option>Cliente no disponible</option>
+            <option>Sin mercancía</option>
+            <option>Pedido mal levantado</option>
+            <option>Error de Torre de Control y Logística</option>
+            <option>Reprogramado a tiempo</option>
+            <option>Surtido erróneo</option>
+            <option>Programación incorrecta</option>
+            <option>Diferencia de tonos</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div id="e-motivo-otro-wrap" style="grid-column:1/-1; display:none;">
+          <label>Especifica el motivo</label>
+          <input type="text" id="e-motivo-otro">
+        </div>
+      </div>
+      <div class="form-actions"><button type="submit">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
@@ -345,6 +396,45 @@ function deleteRecord(id) {
   if (confirm("¿Borrar este registro?")) db.collection('registros').doc(id).delete();
 }
 
+// ---- Editar registro ----
+function openEdit(id) {
+  const r = records.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('e-id').value = r.id;
+  document.getElementById('e-fecha-evento').value = r.fechaEvento || '';
+  document.getElementById('e-folio').value = r.folio || '';
+  document.getElementById('e-monto').value = r.monto || 0;
+  document.getElementById('e-vendedor').value = r.vendedor || '';
+  document.getElementById('e-tienda').value = r.tienda || '';
+  document.getElementById('e-operador').value = r.operador || '';
+  document.getElementById('e-almacen').value = r.almacen || '';
+  document.getElementById('e-motivo').value = r.motivo || '';
+  document.getElementById('e-motivo-otro').value = r.motivoDetalle || '';
+  document.getElementById('e-motivo-otro-wrap').style.display = r.motivo === 'Otro' ? 'block' : 'none';
+  openModal('edit-modal');
+}
+
+document.getElementById('e-motivo').addEventListener('change', (e) => {
+  document.getElementById('e-motivo-otro-wrap').style.display = e.target.value === 'Otro' ? 'block' : 'none';
+});
+
+document.getElementById('edit-form').onsubmit = (e) => {
+  e.preventDefault();
+  const id = document.getElementById('e-id').value;
+  const motivo = document.getElementById('e-motivo').value;
+  db.collection('registros').doc(id).update({
+    fechaEvento: document.getElementById('e-fecha-evento').value,
+    folio: document.getElementById('e-folio').value.trim(),
+    monto: parseFloat(document.getElementById('e-monto').value) || 0,
+    vendedor: document.getElementById('e-vendedor').value.trim(),
+    tienda: document.getElementById('e-tienda').value.trim(),
+    operador: document.getElementById('e-operador').value.trim(),
+    almacen: document.getElementById('e-almacen').value,
+    motivo: motivo,
+    motivoDetalle: motivo === 'Otro' ? document.getElementById('e-motivo-otro').value.trim() : ''
+  }).then(() => closeModal('edit-modal'));
+};
+
 // ---- Render tabla ----
 function renderRecords() {
   // Poblar el select de captores sin perder la selección actual
@@ -369,7 +459,10 @@ function renderRecords() {
       <td>${escapeHtml(r.almacen)}</td>
       <td>${escapeHtml(r.motivo)}${r.motivoDetalle ? ' ('+escapeHtml(r.motivoDetalle)+')' : ''}</td>
       <td>${escapeHtml(r.capturadoPor||'')}</td>
-      <td><button class="del-btn" onclick="deleteRecord('${r.id}')">✕</button></td>
+      <td>
+        <button class="del-btn edit-btn" onclick="openEdit('${r.id}')" title="Editar">✎</button>
+        <button class="del-btn" onclick="deleteRecord('${r.id}')" title="Borrar">✕</button>
+      </td>
     </tr>`).join('');
 }
 
@@ -471,8 +564,13 @@ themeBtn.onclick = () => applyTheme(document.documentElement.getAttribute('data-
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
-  document.getElementById(id === 'compare-modal' ? 'compare-setup' : 'exec-setup').style.display = 'block';
-  document.getElementById(id === 'compare-modal' ? 'compare-results' : 'exec-results').style.display = 'none';
+  if (id === 'compare-modal') {
+    document.getElementById('compare-setup').style.display = 'block';
+    document.getElementById('compare-results').style.display = 'none';
+  } else if (id === 'exec-modal') {
+    document.getElementById('exec-setup').style.display = 'block';
+    document.getElementById('exec-results').style.display = 'none';
+  }
 }
 document.getElementById('open-compare-btn').onclick = () => openModal('compare-modal');
 document.getElementById('open-exec-btn').onclick = () => openModal('exec-modal');
@@ -576,8 +674,13 @@ document.getElementById('run-exec-btn').onclick = () => {
           <div class="stat-box"><div class="n">${Object.keys(storeCounts).length}</div><div class="l">Tiendas afectadas</div></div>
         </div>
         <table style="margin-top:12px;">
-          <thead><tr><th>Motivo</th><th>Casos</th></tr></thead>
-          <tbody>${MOTIVOS.filter(m=>counts[m]>0).sort((a,b)=>counts[b]-counts[a]).map(m=>`<tr><td>${m}</td><td>${counts[m]}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Motivo</th><th>Pedidos (folios)</th><th>Casos</th><th>Monto</th></tr></thead>
+          <tbody>${MOTIVOS.filter(m=>counts[m]>0).sort((a,b)=>counts[b]-counts[a]).map(m=>{
+            const pedidos = data.filter(r=>r.motivo===m);
+            const montoM = pedidos.reduce((s,r)=>s+(r.monto||0),0);
+            const folios = pedidos.map(r=>escapeHtml(r.folio)).join(', ');
+            return `<tr><td>${m}</td><td style="white-space:normal; max-width:320px;">${folios}</td><td>${counts[m]}</td><td>$${montoM.toLocaleString('es-MX',{minimumFractionDigits:2})}</td></tr>`;
+          }).join('')}</tbody>
         </table>
       </div>
 
