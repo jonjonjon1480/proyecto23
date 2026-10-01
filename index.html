@@ -115,7 +115,27 @@
         <div><label>Folio ODE</label><input type="text" id="f-folio" required></div>
         <div><label>Monto ODE ($)</label><input type="number" step="0.01" id="f-monto" required></div>
         <div><label>Vendedor</label><input type="text" id="f-vendedor" required></div>
-        <div><label>Tienda</label><input type="text" id="f-tienda" required></div>
+        <div>
+          <label>Tienda</label>
+          <select id="f-tienda" required>
+            <option value="">Selecciona...</option>
+            <option>Foráneo</option>
+            <option>Gustavo Baz</option>
+            <option>Interlomas</option>
+            <option>La Viga</option>
+            <option>Metepec</option>
+            <option>Miramontes</option>
+            <option>Pachuca</option>
+            <option>Perinorte</option>
+            <option>Polanco</option>
+            <option>Puebla</option>
+            <option>Querétaro</option>
+            <option>Santa Fé</option>
+            <option>Studio</option>
+            <option>Toreo</option>
+            <option>Zaragoza</option>
+          </select>
+        </div>
         <div><label>Operador de camión</label><input type="text" id="f-operador" required></div>
         <div>
           <label>Tipo de almacén</label>
@@ -156,6 +176,32 @@
     <div class="date-filter">
       <div><label>Desde</label><input type="date" id="stat-start"></div>
       <div><label>Hasta</label><input type="date" id="stat-end"></div>
+      <div><label>Tienda</label><select id="stat-tienda"><option value="">Todas</option></select></div>
+      <div>
+        <label>Almacén</label>
+        <select id="stat-almacen">
+          <option value="">Todos</option>
+          <option>Almacén A</option>
+          <option>Almacén Q</option>
+          <option>Almacén K</option>
+        </select>
+      </div>
+      <div>
+        <label>Motivo</label>
+        <select id="stat-motivo">
+          <option value="">Todos</option>
+          <option>Dañado</option>
+          <option>Cliente no disponible</option>
+          <option>Sin mercancía</option>
+          <option>Pedido mal levantado</option>
+          <option>Error de Torre de Control y Logística</option>
+          <option>Reprogramado a tiempo</option>
+          <option>Surtido erróneo</option>
+          <option>Programación incorrecta</option>
+          <option>Diferencia de tonos</option>
+          <option>Otro</option>
+        </select>
+      </div>
       <div style="flex:0;"><button class="secondary" id="stat-filter-btn">Filtrar</button></div>
       <div style="flex:0;"><button class="secondary" id="stat-clear-btn">Quitar filtro</button></div>
     </div>
@@ -245,7 +291,27 @@
         <div><label>Folio ODE</label><input type="text" id="e-folio" required></div>
         <div><label>Monto ODE ($)</label><input type="number" step="0.01" id="e-monto" required></div>
         <div><label>Vendedor</label><input type="text" id="e-vendedor" required></div>
-        <div><label>Tienda</label><input type="text" id="e-tienda" required></div>
+        <div>
+          <label>Tienda</label>
+          <select id="e-tienda" required>
+            <option value="">Selecciona...</option>
+            <option>Foráneo</option>
+            <option>Gustavo Baz</option>
+            <option>Interlomas</option>
+            <option>La Viga</option>
+            <option>Metepec</option>
+            <option>Miramontes</option>
+            <option>Pachuca</option>
+            <option>Perinorte</option>
+            <option>Polanco</option>
+            <option>Puebla</option>
+            <option>Querétaro</option>
+            <option>Santa Fé</option>
+            <option>Studio</option>
+            <option>Toreo</option>
+            <option>Zaragoza</option>
+          </select>
+        </div>
         <div><label>Operador de camión</label><input type="text" id="e-operador" required></div>
         <div>
           <label>Tipo de almacén</label>
@@ -384,6 +450,7 @@ function listenToRecords() {
   db.collection('registros').orderBy('fechaEvento', 'desc').onSnapshot(snap => {
     records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderRecords();
+    populateStatTiendaOptions();
     applyStatFilter();
   }, err => {
     document.getElementById('sync-status').textContent = "⚠ error de sincronización";
@@ -482,12 +549,31 @@ document.getElementById('stat-filter-btn').onclick = applyStatFilter;
 document.getElementById('stat-clear-btn').onclick = () => {
   document.getElementById('stat-start').value = '';
   document.getElementById('stat-end').value = '';
+  document.getElementById('stat-tienda').value = '';
+  document.getElementById('stat-almacen').value = '';
+  document.getElementById('stat-motivo').value = '';
   applyStatFilter();
 };
 function applyStatFilter() {
   const start = document.getElementById('stat-start').value;
   const end = document.getElementById('stat-end').value;
-  renderStats(getRecordsInRange(start, end));
+  const tienda = document.getElementById('stat-tienda').value;
+  const almacen = document.getElementById('stat-almacen').value;
+  const motivo = document.getElementById('stat-motivo').value;
+  let data = getRecordsInRange(start, end);
+  if (tienda) data = data.filter(r => r.tienda === tienda);
+  if (almacen) data = data.filter(r => r.almacen === almacen);
+  if (motivo) data = data.filter(r => r.motivo === motivo);
+  renderStats(data);
+}
+
+const TIENDAS = ["Foráneo","Gustavo Baz","Interlomas","La Viga","Metepec","Miramontes",
+  "Pachuca","Perinorte","Polanco","Puebla","Querétaro","Santa Fé","Studio","Toreo","Zaragoza"];
+
+function populateStatTiendaOptions() {
+  const select = document.getElementById('stat-tienda');
+  if (select.options.length > 1) return; // ya poblado, catálogo fijo
+  select.innerHTML = '<option value="">Todas</option>' + TIENDAS.map(t => `<option>${t}</option>`).join('');
 }
 
 // ---- Render estadísticas ----
@@ -678,7 +764,7 @@ document.getElementById('run-exec-btn').onclick = () => {
           <tbody>${MOTIVOS.filter(m=>counts[m]>0).sort((a,b)=>counts[b]-counts[a]).map(m=>{
             const pedidos = data.filter(r=>r.motivo===m);
             const montoM = pedidos.reduce((s,r)=>s+(r.monto||0),0);
-            const folios = pedidos.map(r=>escapeHtml(r.folio)).join(', ');
+            const folios = pedidos.map(r=>`${escapeHtml(r.folio)} (${escapeHtml(r.almacen||'—')})`).join(', ');
             return `<tr><td>${m}</td><td style="white-space:normal; max-width:320px;">${folios}</td><td>${counts[m]}</td><td>$${montoM.toLocaleString('es-MX',{minimumFractionDigits:2})}</td></tr>`;
           }).join('')}</tbody>
         </table>
