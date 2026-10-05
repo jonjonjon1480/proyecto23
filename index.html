@@ -257,6 +257,35 @@
           <label style="margin-top:8px;">Hasta</label><input type="date" id="cmp-b-end">
         </div>
       </div>
+      <h4>Filtros adicionales (aplican a ambos periodos)</h4>
+      <div class="date-filter">
+        <div><label>Tienda</label><select id="cmp-tienda"><option value="">Todas</option></select></div>
+        <div>
+          <label>Almacén</label>
+          <select id="cmp-almacen">
+            <option value="">Todos</option>
+            <option>Almacén A</option>
+            <option>Almacén Q</option>
+            <option>Almacén K</option>
+          </select>
+        </div>
+        <div>
+          <label>Motivo</label>
+          <select id="cmp-motivo">
+            <option value="">Todos</option>
+            <option>Dañado</option>
+            <option>Cliente no disponible</option>
+            <option>Sin mercancía</option>
+            <option>Pedido mal levantado</option>
+            <option>Error de Torre de Control y Logística</option>
+            <option>Reprogramado a tiempo</option>
+            <option>Surtido erróneo</option>
+            <option>Programación incorrecta</option>
+            <option>Diferencia de tonos</option>
+            <option>Otro</option>
+          </select>
+        </div>
+      </div>
       <button id="run-compare-btn">Comparar</button>
     </div>
     <div id="compare-results" style="display:none;"></div>
@@ -272,8 +301,34 @@
       <div class="date-filter">
         <div><label>Desde</label><input type="date" id="exec-start"></div>
         <div><label>Hasta</label><input type="date" id="exec-end"></div>
+        <div><label>Tienda</label><select id="exec-tienda"><option value="">Todas</option></select></div>
+        <div>
+          <label>Almacén</label>
+          <select id="exec-almacen">
+            <option value="">Todos</option>
+            <option>Almacén A</option>
+            <option>Almacén Q</option>
+            <option>Almacén K</option>
+          </select>
+        </div>
+        <div>
+          <label>Motivo</label>
+          <select id="exec-motivo">
+            <option value="">Todos</option>
+            <option>Dañado</option>
+            <option>Cliente no disponible</option>
+            <option>Sin mercancía</option>
+            <option>Pedido mal levantado</option>
+            <option>Error de Torre de Control y Logística</option>
+            <option>Reprogramado a tiempo</option>
+            <option>Surtido erróneo</option>
+            <option>Programación incorrecta</option>
+            <option>Diferencia de tonos</option>
+            <option>Otro</option>
+          </select>
+        </div>
       </div>
-      <p style="font-size:12px; color:var(--muted);">Deja las fechas vacías para incluir todos los registros.</p>
+      <p style="font-size:12px; color:var(--muted);">Se precargan con los filtros que tengas activos en Estadísticas — puedes ajustarlos aquí antes de generar.</p>
       <button id="run-exec-btn">Generar reporte</button>
     </div>
     <div id="exec-results" style="display:none;"></div>
@@ -556,6 +611,25 @@ function getRecordsInRange(startStr, endStr, source) {
   });
 }
 
+// Filtra un conjunto de registros por rango de fechas + tienda + almacén + motivo (cualquiera puede ir vacío)
+function filterRecordsFull(start, end, tienda, almacen, motivo, source) {
+  let data = getRecordsInRange(start, end, source);
+  if (tienda) data = data.filter(r => r.tienda === tienda);
+  if (almacen) data = data.filter(r => getAlmacenes(r).includes(almacen));
+  if (motivo) data = data.filter(r => r.motivo === motivo);
+  return data;
+}
+
+function getStatFilterValues() {
+  return {
+    start: document.getElementById('stat-start').value,
+    end: document.getElementById('stat-end').value,
+    tienda: document.getElementById('stat-tienda').value,
+    almacen: document.getElementById('stat-almacen').value,
+    motivo: document.getElementById('stat-motivo').value
+  };
+}
+
 document.getElementById('stat-filter-btn').onclick = applyStatFilter;
 document.getElementById('stat-clear-btn').onclick = () => {
   document.getElementById('stat-start').value = '';
@@ -566,16 +640,8 @@ document.getElementById('stat-clear-btn').onclick = () => {
   applyStatFilter();
 };
 function applyStatFilter() {
-  const start = document.getElementById('stat-start').value;
-  const end = document.getElementById('stat-end').value;
-  const tienda = document.getElementById('stat-tienda').value;
-  const almacen = document.getElementById('stat-almacen').value;
-  const motivo = document.getElementById('stat-motivo').value;
-  let data = getRecordsInRange(start, end);
-  if (tienda) data = data.filter(r => r.tienda === tienda);
-  if (almacen) data = data.filter(r => getAlmacenes(r).includes(almacen));
-  if (motivo) data = data.filter(r => r.motivo === motivo);
-  renderStats(data);
+  const f = getStatFilterValues();
+  renderStats(filterRecordsFull(f.start, f.end, f.tienda, f.almacen, f.motivo));
 }
 
 const TIENDAS = ["Foráneo","Gustavo Baz","Interlomas","La Viga","Metepec","Miramontes",
@@ -680,17 +746,42 @@ function closeModal(id) {
     document.getElementById('exec-results').style.display = 'none';
   }
 }
-document.getElementById('open-compare-btn').onclick = () => openModal('compare-modal');
-document.getElementById('open-exec-btn').onclick = () => openModal('exec-modal');
+function populateTiendaSelect(id) {
+  const select = document.getElementById(id);
+  if (select.options.length > 1) return;
+  select.innerHTML = '<option value="">Todas</option>' + TIENDAS.map(t => `<option>${t}</option>`).join('');
+}
+
+document.getElementById('open-compare-btn').onclick = () => {
+  populateTiendaSelect('cmp-tienda');
+  const f = getStatFilterValues();
+  document.getElementById('cmp-tienda').value = f.tienda;
+  document.getElementById('cmp-almacen').value = f.almacen;
+  document.getElementById('cmp-motivo').value = f.motivo;
+  openModal('compare-modal');
+};
+document.getElementById('open-exec-btn').onclick = () => {
+  populateTiendaSelect('exec-tienda');
+  const f = getStatFilterValues();
+  document.getElementById('exec-start').value = f.start;
+  document.getElementById('exec-end').value = f.end;
+  document.getElementById('exec-tienda').value = f.tienda;
+  document.getElementById('exec-almacen').value = f.almacen;
+  document.getElementById('exec-motivo').value = f.motivo;
+  openModal('exec-modal');
+};
 
 // ---- Comparación de reportes ----
 document.getElementById('run-compare-btn').onclick = () => {
   const aS = document.getElementById('cmp-a-start').value, aE = document.getElementById('cmp-a-end').value;
   const bS = document.getElementById('cmp-b-start').value, bE = document.getElementById('cmp-b-end').value;
   if (!aS || !aE || !bS || !bE) { alert('Selecciona las 4 fechas (inicio y fin de cada periodo).'); return; }
+  const tienda = document.getElementById('cmp-tienda').value;
+  const almacen = document.getElementById('cmp-almacen').value;
+  const motivo = document.getElementById('cmp-motivo').value;
 
-  const dataA = getRecordsInRange(aS, aE);
-  const dataB = getRecordsInRange(bS, bE);
+  const dataA = filterRecordsFull(aS, aE, tienda, almacen, motivo);
+  const dataB = filterRecordsFull(bS, bE, tienda, almacen, motivo);
   const totalA = dataA.length, totalB = dataB.length;
   const montoA = dataA.reduce((s,r)=>s+(r.monto||0),0);
   const montoB = dataB.reduce((s,r)=>s+(r.monto||0),0);
@@ -713,6 +804,7 @@ document.getElementById('run-compare-btn').onclick = () => {
       <div class="report-header">
         <h2>Comparación de reportes — Proyecto 23</h2>
         <div class="rh-sub">Periodo A: ${aS} a ${aE} &nbsp;|&nbsp; Periodo B: ${bS} a ${bE}</div>
+        <div class="rh-sub">Filtros: Tienda: ${tienda||'Todas'} &nbsp;|&nbsp; Almacén: ${almacen||'Todos'} &nbsp;|&nbsp; Motivo: ${motivo||'Todos'}</div>
       </div>
       <div class="stat-grid" style="margin-bottom:18px;">
         <div class="stat-box"><div class="n">${totalA} → ${totalB}</div><div class="l">Total no entregadas ${deltaCell(totalA,totalB)}</div></div>
@@ -733,7 +825,10 @@ document.getElementById('run-compare-btn').onclick = () => {
 document.getElementById('run-exec-btn').onclick = () => {
   const start = document.getElementById('exec-start').value;
   const end = document.getElementById('exec-end').value;
-  const data = getRecordsInRange(start, end);
+  const tienda = document.getElementById('exec-tienda').value;
+  const almacen = document.getElementById('exec-almacen').value;
+  const motivo = document.getElementById('exec-motivo').value;
+  const data = filterRecordsFull(start, end, tienda, almacen, motivo);
   const total = data.length;
   const montoTotal = data.reduce((s,r)=>s+(r.monto||0),0);
   const counts = motivoCounts(data);
@@ -772,6 +867,7 @@ document.getElementById('run-exec-btn').onclick = () => {
       <div class="report-header">
         <h2>Reporte ejecutivo — Proyecto 23</h2>
         <div class="rh-sub">CEDIS Kassel Home &amp; Living &nbsp;|&nbsp; Periodo: ${start||'inicio'} a ${end||'hoy'} &nbsp;|&nbsp; Generado: ${new Date().toLocaleDateString('es-MX')}</div>
+        <div class="rh-sub">Filtros: Tienda: ${tienda||'Todas'} &nbsp;|&nbsp; Almacén: ${almacen||'Todos'} &nbsp;|&nbsp; Motivo: ${motivo||'Todos'}</div>
       </div>
 
       <div class="exec-section">
